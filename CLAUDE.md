@@ -40,6 +40,8 @@ Standard library Python, run with `python3 -I`.
    Key from `OPENAI_API_KEY` (stored in `otp-data/.env`, never here).
    Labeling runs in two passes: a cheap model over everything, then a stronger model over the
    non-`other` rows plus a random sample of `other` rows to measure disagreement.
+3. `select_emails.py <labels> <out>`: merges the passes (pass 2 wins) into `final.jsonl` and copies
+   the emails into `otp/`, `hard-negative/` and `random-negative/` in the private repo.
 
 ## Model design
 
