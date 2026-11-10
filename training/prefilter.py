@@ -64,7 +64,7 @@ TOKEN_RE = re.compile(
     r"(?<![\w.,/:-])(?:\d{4,10}|\d{3,4}[ -]\d{3,4}|(?=[A-Z0-9]*\d[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{5,10})(?![\w.,/:-]|-\w)"
 )
 
-# A code printed right after the phrase that names it may be letters only (Steam Guard: "FXCVJ")
+# A code printed right after the phrase that names it may be letters only (Steam Guard style: "QWKZT")
 AFTER_KEYWORD_RE = re.compile(r"(?<![\w.,/:-])[A-Z0-9]{4,10}(?![\w.,/:-]|-\w)")
 AFTER_KEYWORD_CHARS = 80
 

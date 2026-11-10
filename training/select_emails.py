@@ -2,7 +2,8 @@
 """Merge label passes and copy the selected emails out of the corpus.
 
 The final label of an email is the strong-model (pass 2) label when there is one, otherwise the
-cheap-model (pass 1) label. Writes the merged labels as `final.jsonl` and copies:
+cheap-model (pass 1) label. Human decisions in `overrides.jsonl` (path, kind, codes, reason) win
+over both and survive relabeling. Writes the merged labels as `final.jsonl` and copies:
 
 - emails labeled `otp` with at least one verified code into `<out>/otp/`
 - other prefilter candidates into `<out>/hard-negative/` (order numbers, promo codes, magic links,
@@ -53,6 +54,13 @@ def main():
     for path, row in load(os.path.join(args.labels, "pass2-*.jsonl")).items():
         first = merged.get(path, {})
         merged[path] = {**row, "source": first.get("source", row["source"]), "pass1": {k: first.get(k) for k in ("kind", "codes", "model")}}
+
+    overrides = os.path.join(args.labels, "overrides.jsonl")
+    if os.path.exists(overrides):
+        for line in open(overrides):
+            if line.strip():
+                row = json.loads(line)
+                merged[row["path"]] = {**merged[row["path"]], "kind": row["kind"], "codes": row["codes"], "override": row["reason"]}
 
     with open(os.path.join(args.labels, "final.jsonl"), "w") as fh:
         for path in sorted(merged):

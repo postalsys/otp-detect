@@ -1,0 +1,7 @@
+CHANGELOG.md
+node_modules/
+package-lock.json
+dist/
+coverage/
+training/
+src/model-data.ts
