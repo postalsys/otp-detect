@@ -4,7 +4,7 @@ import type { Candidate } from './candidates.js';
 import { extractCandidates } from './candidates.js';
 import type { Doc } from './doc.js';
 import { renderText } from './doc.js';
-import { candidateFeatures, docContext } from './features.js';
+import { candidateFeatures, docContext, messageContext } from './features.js';
 import { renderHtml } from './html.js';
 
 export type MessageInput = {
@@ -47,10 +47,10 @@ export function analyze(input: MessageInput): Occurrence[] {
             .filter(d => d !== doc)
             .map(d => d.text)
             .join('\n');
-        const msg = { subject, otherText, distinctCodes };
-        for (const candidate of candidates) {
-            out.push({ candidate, source: doc.source, features: candidateFeatures(ctx, msg, candidate) });
-        }
+        const msg = messageContext(subject, otherText, distinctCodes);
+        candidates.forEach((candidate, i) => {
+            out.push({ candidate, source: doc.source, features: candidateFeatures(ctx, msg, i) });
+        });
     }
     return out;
 }

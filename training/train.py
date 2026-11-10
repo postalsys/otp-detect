@@ -75,19 +75,11 @@ def outcomes(best, emails, threshold):
     return count
 
 
-def report(best, emails, threshold):
-    c = outcomes(best, emails, threshold)
-    otp = max(c["otp"], 1)
-    return (
-        f"thr={threshold:.3f} correct={c['correct']}/{c['otp']} ({c['correct'] / otp:.1%}) wrong={c['wrong']} missed={c['missed']} "
-        f"fp_hard={c['fp_hard-negative']}/{c['hard-negative']} fp_random={c['fp_random-negative']}/{c['random-negative']} fp_senders={c['fp_senders']}"
-    )
-
-
 def report_mean(runs, emails, threshold):
     keys = ("correct", "wrong", "missed", "fp_hard-negative", "fp_random-negative", "fp_senders")
-    totals = {k: np.mean([outcomes(b, emails, threshold)[k] for b in runs]) for k in keys}
-    c = outcomes(runs[0], emails, threshold)
+    outs = [outcomes(b, emails, threshold) for b in runs]
+    totals = {k: np.mean([o[k] for o in outs]) for k in keys}
+    c = outs[0]
     return (
         f"thr={threshold:.2f} correct={totals['correct']:.1f}/{c['otp']} ({totals['correct'] / max(c['otp'], 1):.1%}) "
         f"wrong={totals['wrong']:.1f} missed={totals['missed']:.1f} fp_hard={totals['fp_hard-negative']:.1f}/{c['hard-negative']} "
@@ -99,6 +91,8 @@ def write_errors(rows, scores, emails, path):
     """Per email: the best candidate and, for OTP emails, the score of the true code"""
     top, true_best = {}, {}
     for r, s in zip(rows, scores):
+        if r["file"] not in emails:
+            continue  # synthetic rows are never scored
         if r["file"] not in top or s > top[r["file"]][0]:
             top[r["file"]] = (s, r["code"], r["label"])
         if r["label"] == 1 and s > true_best.get(r["file"], (-1, ""))[0]:
@@ -146,52 +140,55 @@ def main():
     ap.add_argument("features")
     ap.add_argument("out", help="TypeScript module to write the model to")
     ap.add_argument("--folds", type=int, default=5)
+    ap.add_argument("--synthetic-weight", type=float, default=1.0, help="weight of synthetic rows relative to real ones")
+    ap.add_argument("--no-synthetic", action="store_true", help="leave synthetic rows out of training")
+    ap.add_argument("--report", type=float, nargs="+", default=[0.3, 0.5, 0.7, 0.9], help="thresholds to report")
     ap.add_argument("--cv-seeds", type=int, default=3, help="cross-validation shuffles to average")
-    ap.add_argument("--threshold", type=float, default=0.9, help="default decision threshold shipped with the model")
+    ap.add_argument("--threshold", type=float, default=0.97, help="default decision threshold shipped with the model")
     ap.add_argument("--version", default="1")
-    ap.add_argument("--email-weights", action="store_true", help="weight rows so every email counts the same")
     ap.add_argument("--errors", help="write the cross-validation errors as JSON lines here (private data)")
     args = ap.parse_args()
 
     names, rows, x, y = load(args.features)
+    synthetic = np.array([bool(r.get("synthetic")) for r in rows])
+    if args.no_synthetic:
+        keep = ~synthetic
+        rows = [r for r, k in zip(rows, keep) if k]
+        x, y, synthetic = x[keep], y[keep], synthetic[keep]
     groups = np.array([r["group"] for r in rows])
-    emails = {r["file"]: r["bucket"] for r in rows}
+    # Only real emails are scored; synthetic ones are always in the training side of every fold
+    emails = {r["file"]: r["bucket"] for r, syn in zip(rows, synthetic) if not syn}
+    real = np.flatnonzero(~synthetic)
+    synth = np.flatnonzero(synthetic)
+    print(f"{len(synth)} synthetic candidate rows")
     print(f"{len(rows)} candidates, {int(y.sum())} positive, {len(emails)} emails with candidates")
 
     weights = np.ones(len(rows))
-    if args.email_weights:
-        per = defaultdict(int)
-        for r in rows:
-            per[r["file"]] += 1
-        weights = np.array([1.0 / per[r["file"]] for r in rows])
-        weights *= len(rows) / weights.sum()
+    weights[synth] *= args.synthetic_weight
 
     # Fold assignment moves a whole sender in or out of training, so one split is noisy: average
-    # the per-email outcomes over several shuffles and keep the predictions of the first one
-    runs = []
+    # the per-email outcomes over several shuffles; the error dump uses the first one
+    oofs = []
     for seed in range(args.cv_seeds):
         oof = np.zeros(len(rows))
         folds = StratifiedGroupKFold(n_splits=args.folds, shuffle=True, random_state=seed + 1)
-        for tr, te in folds.split(x, y, groups):
+        for tr, te in folds.split(x[real], y[real], groups[real]):
+            tr, te = np.concatenate([real[tr], synth]), real[te]
             booster = lgb.train(PARAMS, lgb.Dataset(x[tr], y[tr], weight=weights[tr]), ROUNDS)
             oof[te] = booster.predict(x[te])
-        runs.append(per_email(rows, oof))
-        if seed == 0:
-            first_oof = oof
-    oof = first_oof
-    best = runs[0]
-    for t in (0.3, 0.5, 0.7, 0.9):
+        oofs.append(oof)
+    runs = [per_email(rows, oof) for oof in oofs]
+    for t in args.report:
         print("cv", report_mean(runs, emails, t))
-    threshold = args.threshold
     if args.errors:
-        write_errors(rows, oof, emails, args.errors)
-    print("cv shipped", report_mean(runs, emails, threshold))
+        write_errors(rows, oofs[0], emails, args.errors)
+    print("cv shipped", report_mean(runs, emails, args.threshold))
 
     booster = lgb.train(PARAMS, lgb.Dataset(x, y, weight=weights), ROUNDS)
     gain = booster.feature_importance("gain")
     top = sorted(zip(names, gain), key=lambda p: -p[1])[:15]
     print("top features:", ", ".join(f"{n}={g:.0f}" for n, g in top))
-    write_model(booster, names, threshold, args.out, args.version)
+    write_model(booster, names, args.threshold, args.out, args.version)
     print(f"wrote {args.out}")
 
 

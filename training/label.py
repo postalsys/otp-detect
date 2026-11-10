@@ -19,7 +19,6 @@ import json
 import os
 import re
 import sys
-import threading
 import time
 import urllib.error
 import urllib.request
@@ -28,7 +27,7 @@ from email import policy
 from email.parser import BytesParser
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from prefilter import SPACE_RE, html_to_text, header  # noqa: E402
+from prefilter import SPACE_RE, header, html_to_text, split_bodies  # noqa: E402
 
 API_URL = "https://api.openai.com/v1/responses"
 MAX_PART_CHARS = 8000
@@ -89,19 +88,8 @@ def email_view(path):
     """The text the model sees: headers it needs plus both body representations, truncated."""
     with open(path, "rb") as fh:
         msg = BytesParser(policy=policy.default).parse(fh)
-    plain, rich = [], []
-    for part in msg.walk():
-        if part.is_multipart() or part.get_content_disposition() == "attachment":
-            continue
-        ctype = part.get_content_type()
-        if ctype not in ("text/plain", "text/html"):
-            continue
-        try:
-            content = part.get_content()
-        except Exception:
-            content = (part.get_payload(decode=True) or b"").decode("utf-8", "replace")
-        if isinstance(content, str):
-            (plain if ctype == "text/plain" else rich).append(content if ctype == "text/plain" else html_to_text(content))
+    plain, html = split_bodies(msg)
+    rich = [html_to_text(h) for h in html]
 
     def tidy(chunks):
         text = SPACE_RE.sub(" ", "\n".join(chunks))
@@ -117,15 +105,16 @@ def email_view(path):
 
 
 def squash(value):
-    return re.sub(r"[\s\- ]", "", value)
+    """A code without whitespace (no-break spaces included) or dashes"""
+    return re.sub(r"[\s-]", "", value)
 
 
-def call(model, effort, view, key, retries=6):
+def call(model, effort, view, key, retries=6, instructions=PROMPT, schema=SCHEMA, name="otp_label"):
     body = {
         "model": model,
-        "instructions": PROMPT,
+        "instructions": instructions,
         "input": view,
-        "text": {"format": {"type": "json_schema", "name": "otp_label", "strict": True, "schema": SCHEMA}},
+        "text": {"format": {"type": "json_schema", "name": name, "strict": True, "schema": schema}},
         "store": False,
     }
     if effort:
@@ -181,7 +170,6 @@ def main():
     print(f"{len(paths)} inputs, {len(done)} already labeled, {len(todo)} to go", file=sys.stderr)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
-    lock = threading.Lock()
     tokens = {"input": 0, "output": 0}
     failed = 0
     with open(args.output, "a") as out, ThreadPoolExecutor(args.concurrency) as pool:
@@ -193,11 +181,10 @@ def main():
                 failed += 1
                 print(f"FAILED {futures[fut]}: {err}", file=sys.stderr)
                 continue
-            with lock:
-                out.write(json.dumps(row, ensure_ascii=False) + "\n")
-                out.flush()
-                tokens["input"] += row["usage"]["input_tokens"] or 0
-                tokens["output"] += row["usage"]["output_tokens"] or 0
+            out.write(json.dumps(row, ensure_ascii=False) + "\n")
+            out.flush()
+            tokens["input"] += row["usage"]["input_tokens"] or 0
+            tokens["output"] += row["usage"]["output_tokens"] or 0
             if i % 100 == 0:
                 print(f"{i}/{len(todo)} tokens={tokens} failed={failed}", file=sys.stderr, flush=True)
     print(f"done tokens={tokens} failed={failed}", file=sys.stderr)

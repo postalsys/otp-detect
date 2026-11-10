@@ -31,7 +31,7 @@ Prefer the `OTP-Token` header when there is one. Neither the header nor the body
 check that the message passes DKIM for the sender's domain before offering a code to a user.
 
 `scoreCandidates(input)` returns every code-like token with its score, best first, for debugging or
-custom rules. Both functions take `{ threshold }` to override the default threshold (0.9).
+custom rules. Both functions take `{ threshold }` to override the default threshold (0.97).
 
 ## How it works
 
@@ -49,16 +49,19 @@ no runtime dependencies. Work is linear in the size of the message, which is cut
 
 ## Accuracy
 
-Measured with cross-validation grouped by sender domain, so every score is for senders the model never
-saw in training, averaged over three shuffles, at the default threshold:
+Measured on real mail with cross-validation grouped by sender domain, so every score is for senders
+the model never saw in training, averaged over three shuffles, at the default threshold:
 
-| emails                                                         | result                          |
-| -------------------------------------------------------------- | ------------------------------- |
-| 324 emails with a one-time code                                | 67.5% correct, 3% wrong code    |
-| 2,045 random emails                                            | 0.06% answered (false positive) |
-| 8,862 hard negatives (order numbers, promo codes, magic links) | 1.3% answered (false positive)  |
+| emails                                                         | result                         |
+| -------------------------------------------------------------- | ------------------------------ |
+| 324 emails with a one-time code                                | 67.3% correct, no wrong codes  |
+| 2,045 random emails                                            | none answered                  |
+| 8,862 hard negatives (order numbers, promo codes, magic links) | 0.9% answered (false positive) |
 
-The training data is mostly English and Estonian. Other languages rely on the keyword lists alone.
+The real training mail is mostly English and Estonian. Synthetic emails from fictional services in
+17 languages fill the gap: on 300 held-out synthetic emails the detector finds 97.5% of the codes
+with no wrong codes. Synthetic emails come from the same generator as the training ones, so treat that
+figure as an upper bound for real mail in those languages.
 
 ## Repository layout
 
@@ -66,7 +69,7 @@ The training data is mostly English and Estonian. Other languages rely on the ke
 | ----------- | ------------------------------------------------------------------------------- |
 | `src/`      | The library: HTML rendering, candidates, keywords, features, tree evaluation    |
 | `scripts/`  | Feature dump for training and a corpus scanner (`dump-features`, `scan-corpus`) |
-| `training/` | Python pipeline: corpus prefilter, LLM labeling, email selection, training      |
+| `training/` | Python pipeline: corpus prefilter, LLM labeling, synthetic emails, training     |
 
 Training data is derived from private mail and lives in a separate private repository. Nothing in
 this repository contains message content; test fixtures are written by hand.

@@ -144,9 +144,13 @@ export function decodeEntities(input: string): string {
     });
 }
 
-function attr(attrs: string, name: string): string | undefined {
-    const re = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i');
-    const m = re.exec(attrs);
+// The attributes elementStyle reads, compiled once instead of on every tag
+const ATTR_RE: Record<string, RegExp> = Object.fromEntries(
+    ['href', 'size', 'hidden', 'style', 'class', 'type'].map(name => [name, new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i')])
+);
+
+function attr(attrs: string, name: keyof typeof ATTR_RE): string | undefined {
+    const m = ATTR_RE[name].exec(attrs);
     return m ? decodeEntities(m[1] ?? m[2] ?? m[3] ?? '') : undefined;
 }
 
@@ -304,22 +308,23 @@ export function renderHtml(html: string): Doc {
             continue;
         }
         const attrs = m[3] ?? '';
-        if (SKIP_CONTENT.has(tag) && !/\/\s*$/.test(attrs)) {
+        const selfClosing = /\/\s*$/.test(attrs);
+        if (SKIP_CONTENT.has(tag) && !selfClosing) {
             skipUntil = tag;
             continue;
         }
-        openTag(doc, stack, tag, attrs, current());
+        openTag(doc, stack, tag, attrs, selfClosing, current());
     }
     return doc.finish();
 }
 
-function openTag(doc: DocBuilder, stack: Open[], tag: string, attrs: string, parent: Style): void {
+function openTag(doc: DocBuilder, stack: Open[], tag: string, attrs: string, selfClosing: boolean, parent: Style): void {
     if (tag === 'br') {
         doc.newline();
         return;
     }
     const block = BLOCK.has(tag);
-    if (VOID.has(tag) || /\/\s*$/.test(attrs)) {
+    if (VOID.has(tag) || selfClosing) {
         if (block) {
             doc.newline();
         }

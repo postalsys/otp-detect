@@ -25,13 +25,13 @@ export type DetectOptions = {
     model?: Model;
 };
 
-let checked = false;
+// Models already checked against FEATURE_NAMES
+const checked = new WeakSet<Model>();
 
 function scored(input: MessageInput, model: Model): OtpCandidate[] {
-    // The bundled model is checked once, a model passed in by the caller every time
-    if (model !== MODEL || !checked) {
+    if (!checked.has(model)) {
         checkModel(model);
-        checked ||= model === MODEL;
+        checked.add(model);
     }
     // The same code printed several times counts once, with its best score
     const best = new Map<string, OtpCandidate>();

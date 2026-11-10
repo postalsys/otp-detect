@@ -83,6 +83,20 @@ with `gpt-5.6-sol` into a new `labels/pass2-sol-scanN.jsonl`, run `select_emails
 retrain. New unlabeled answers per round went 501, 244, 92, 76: the model's own mistakes are the
 most useful training data.
 
+## Synthetic emails
+
+`training/synth.py <out.jsonl> --count N --seed S` asks `gpt-5.6-sol` for emails from fictional
+services in 17 languages: OTP emails (the code is chosen by the script, so the label is exact, and an
+email that loses its code is dropped) and look-alikes (promo, referral, order, tracking, invoice,
+magic link, security alert, meeting and gift card codes). `train.jsonl` (seed 1) is passed to
+`dump-features --synthetic`; `holdout.jsonl` (seed 2) is only for
+`node --import tsx scripts/eval-synthetic.ts ../otp-data/synthetic/holdout.jsonl`, never for training.
+
+train.py always puts synthetic rows on the training side and scores real emails only. Synthetic data
+raises all scores, so compare models at matched false positive levels, not at one threshold. It cut
+wrong codes on real mail from about 10 to 0 and lifted the holdout from 69% to 97%; down-weighting it
+(`--synthetic-weight`) made wrong codes worse.
+
 ## Evaluation
 
 `train.py` reports per email, the way the library is used: correct, wrong code, missed, and false

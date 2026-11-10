@@ -14,9 +14,6 @@ export type Candidate = {
     start: number;
     end: number;
     kind: CandidateKind;
-    /** The character right before and after the candidate, '' at the edges */
-    prev: string;
-    next: string;
 };
 
 const TOKEN_RE = /[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/g;
@@ -28,6 +25,8 @@ const JOINERS = new Set(['.', ',', ':', '/', '@', '_', '\\', '=', '&', '?', '%',
 const ALNUM_RE = /[A-Za-z0-9]/;
 
 const MAX_CANDIDATES = 400;
+
+type Token = { start: number; end: number; value: string };
 
 function isAlnum(ch: string | undefined): boolean {
     return ch !== undefined && ALNUM_RE.test(ch);
@@ -55,7 +54,7 @@ export function codeLike(core: string): boolean {
         return false;
     }
     // 21st, 100mg, 1080p, 12px, 5000mAh
-    return !/^\d+(?:st|nd|rd|th|[a-z]{1,3}|mAh|MB|GB|KB|kB|Hz|px)$/.test(core);
+    return !/^\d+(?:[a-z]{1,3}|mAh|MB|GB|KB|kB|Hz)$/.test(core);
 }
 
 // Checked once per whitespace separated chunk, never per token, so a long blob stays linear
@@ -72,11 +71,11 @@ function gluedToNeighbour(text: string, start: number, end: number): boolean {
 }
 
 function make(text: string, start: number, end: number, kind: CandidateKind, code: string): Candidate {
-    return { code, raw: text.slice(start, end), start, end, kind, prev: text[start - 1] ?? '', next: text[end] ?? '' };
+    return { code, raw: text.slice(start, end), start, end, kind };
 }
 
 function tokenCandidates(text: string, out: Candidate[]): void {
-    const tokens: { start: number; end: number; value: string }[] = [];
+    const tokens: Token[] = [];
     CHUNK_RE.lastIndex = 0;
     for (let chunk = CHUNK_RE.exec(text); chunk; chunk = CHUNK_RE.exec(text)) {
         if (URL_OR_ADDRESS_RE.test(chunk[0])) {
@@ -127,17 +126,18 @@ function addToken(text: string, start: number, value: string, out: Candidate[]):
 }
 
 // "123 456" and "1234 5678": two or three digit groups separated by a single space
-function addDigitGroups(text: string, tokens: { start: number; end: number; value: string }[], out: Candidate[]): void {
+function addDigitGroups(text: string, tokens: Token[], out: Candidate[]): void {
     for (let i = 0; i < tokens.length; i++) {
         let digits = '';
         for (let j = i; j < tokens.length && j < i + 3; j++) {
             const token = tokens[j];
-            if (!/^\d{2,4}$/.test(token.value) || (j > i && text.slice((tokens[j - 1] as { end: number }).end, token.start) !== ' ')) {
+            const separatedBySpace = j === i || (token.start === tokens[j - 1].end + 1 && text[token.start - 1] === ' ');
+            if (!/^\d{2,4}$/.test(token.value) || !separatedBySpace) {
                 break;
             }
             digits += token.value;
             if (j > i && digits.length >= 6 && digits.length <= 9) {
-                out.push(make(text, (tokens[i] as { start: number }).start, token.end, 'grouped', digits));
+                out.push(make(text, tokens[i].start, token.end, 'grouped', digits));
             }
         }
     }

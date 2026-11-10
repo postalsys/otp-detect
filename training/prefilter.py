@@ -83,7 +83,8 @@ def html_to_text(src):
     return html.unescape(src)
 
 
-def body_text(msg):
+def split_bodies(msg):
+    """The text/plain parts and the text/html parts (as raw HTML) of a message, attachments skipped"""
     plain, rich = [], []
     for part in msg.walk():
         if part.is_multipart() or part.get_content_disposition() == "attachment":
@@ -94,12 +95,15 @@ def body_text(msg):
         try:
             content = part.get_content()
         except Exception:
-            payload = part.get_payload(decode=True) or b""
-            content = payload.decode("utf-8", "replace")
-        if not isinstance(content, str):
-            continue
-        (plain if ctype == "text/plain" else rich).append(content if ctype == "text/plain" else html_to_text(content))
-    text = "\n".join(rich) if rich else "\n".join(plain)
+            content = (part.get_payload(decode=True) or b"").decode("utf-8", "replace")
+        if isinstance(content, str):
+            (plain if ctype == "text/plain" else rich).append(content)
+    return plain, rich
+
+
+def body_text(msg):
+    plain, rich = split_bodies(msg)
+    text = "\n".join(html_to_text(h) for h in rich) if rich else "\n".join(plain)
     text = SPACE_RE.sub(" ", text)
     return text[:MAX_TEXT_CHARS]
 
