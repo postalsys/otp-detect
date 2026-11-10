@@ -41,7 +41,9 @@ verification and confirmation codes, two-factor codes, Steam Guard style codes, 
 password reset codes, payment or transaction approval codes, device pairing codes.
 
 NOT one-time codes: order, invoice, ticket, booking or tracking numbers; discount or promo codes;
-gift card codes; permanent PINs or passwords sent for ongoing use; links (magic links count as
+gift card codes; permanent PINs or passwords sent for ongoing use; parcel locker, pickup point or
+door opening PINs; event ticket or redemption codes; meeting passcodes; invite or beta access
+codes; domain transfer (EPP) authorization codes; license or registration keys; links (magic links count as
 `magic_link`, not `otp`); phone numbers, prices, dates, customer IDs; codes in quoted reply history
 of a conversation, in forwarded messages, in mailing list discussion, or in source code and logs.
 
