@@ -1,0 +1,32 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Trained model files are downloaded or copied in, never committed
+model/
+
+# Training artefacts. Derived from private mail, they must never be committed here.
+# The data lives in the private postalsys/otp-data repository.
+training/output/
+training/venv/
+data/
+*.eml
+*.jsonl
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# OS, editors, logs
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Claude Code local settings
+.claude/settings.local.json
