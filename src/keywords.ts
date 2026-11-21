@@ -109,7 +109,14 @@ export const STRONG = compile([
     '인증번호',
     '인증 코드',
     'doğrulama kodu',
-    'güvenlik kodu'
+    'güvenlik kodu',
+    // Vietnamese
+    'mã (?:xác (?:minh|thực|nhận)|otp|bảo mật|đăng nhập|kích hoạt)',
+    'mã của bạn',
+    // Indonesian, Malay
+    'kode (?:verifikasi|otp|konfirmasi|keamanan|masuk|aktivasi|akses)',
+    'kode anda',
+    'kod (?:pengesahan|keselamatan)'
 ]);
 
 /** Generic words for a code or secret, weaker evidence on their own */
@@ -133,7 +140,9 @@ export const WEAK = compile([
     'コード',
     '码',
     '碼',
-    'kontrollsõna'
+    'kontrollsõna',
+    // \b would also match inside Vietnamese words such as "mãi"
+    '(?<!\\p{L})mã(?!\\p{L})'
 ]);
 
 /** How a one-time code is introduced or limited: instructions, expiry, warnings */
@@ -167,7 +176,20 @@ export const CUE = compile([
     'действител',
     'минут',
     '分钟',
-    '有效'
+    '有效',
+    // Vietnamese
+    'nhập',
+    'hiệu lực',
+    'hết hạn',
+    'phút',
+    'không (?:chia sẻ|cung cấp)',
+    // Indonesian, Malay
+    'masukkan',
+    'berlaku',
+    'kedaluwarsa',
+    '\\bmenit\\b',
+    '\\bminit\\b',
+    'jangan (?:bagikan|berikan|beritahu)'
 ]);
 
 /** Words that introduce the other kinds of numbers an email is full of */
@@ -229,7 +251,22 @@ export const NEGATIVE = compile([
     'commande',
     'facture',
     'заказ',
-    'счет'
+    'счет',
+    // Vietnamese
+    'đơn hàng',
+    'hóa đơn',
+    'tổng (?:tiền|cộng)',
+    'số điện thoại',
+    'điện thoại',
+    'mã vận đơn',
+    // Indonesian
+    'pesanan',
+    'tagihan',
+    'faktur',
+    'pembayaran',
+    'nomor resi',
+    'pengiriman',
+    '\\bhubungi\\b'
 ]);
 
 /** Codes that are handed out but prove nothing: promotions, referrals, invitations, gifts */
@@ -268,7 +305,11 @@ export const PROMO = compile([
     'parrainage',
     'скидк',
     'промокод',
-    '优惠'
+    '优惠',
+    'mã giảm giá',
+    'khuyến mãi',
+    'kode promo',
+    'diskon'
 ]);
 
 /** Start and end offsets of every match, sorted by start */
