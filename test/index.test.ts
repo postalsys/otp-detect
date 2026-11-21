@@ -95,6 +95,48 @@ describe('detectOtp', () => {
         assert.equal(result?.code, '913560');
     });
 
+    it('finds the code in a Vietnamese email', () => {
+        const result = detectOtp({
+            subject: 'Mã xác minh',
+            text: 'Mã xác minh của bạn là 482913. Mã có hiệu lực trong 10 phút.'
+        });
+        assert.equal(result?.code, '482913');
+        const html = detectOtp({
+            subject: 'Mã OTP',
+            html: '<p>Xin chào,</p><p>Mã OTP của bạn là:</p><p style="font-size:28px"><b>739204</b></p><p>Mã có hiệu lực trong 5 phút. Không chia sẻ mã này với bất kỳ ai.</p>'
+        });
+        assert.equal(html?.code, '739204');
+    });
+
+    it('finds the code in an Indonesian email', () => {
+        const result = detectOtp({
+            subject: 'Kode verifikasi',
+            text: 'Kode verifikasi Anda adalah 482913. Jangan bagikan kode ini kepada siapa pun.'
+        });
+        assert.equal(result?.code, '482913');
+        const html = detectOtp({
+            subject: 'Kode OTP',
+            html: '<p>Halo,</p><p>Kode OTP Anda:</p><p style="font-size:28px"><b>739204</b></p><p>Kode berlaku selama 5 menit. Jangan berikan kode ini kepada siapa pun.</p>'
+        });
+        assert.equal(html?.code, '739204');
+    });
+
+    it('stays quiet on a Vietnamese order confirmation', () => {
+        const result = detectOtp({
+            subject: 'Đơn hàng của bạn đang được giao',
+            text: 'Xin chào,\n\nMã đơn hàng: 582317\nMã vận đơn: 77341209\nTổng tiền: 350.000 đ\nHotline: 1900 6035\n\nCảm ơn bạn đã mua sắm.\n'
+        });
+        assert.equal(result, null);
+    });
+
+    it('stays quiet on an Indonesian order confirmation', () => {
+        const result = detectOtp({
+            subject: 'Pesanan Anda sedang dikirim',
+            text: 'Halo,\n\nNomor pesanan: 582317\nNomor resi: 77341209\nTotal pembayaran: Rp 350.000\nHubungi kami di 1500 123.\n\nTerima kasih.\n'
+        });
+        assert.equal(result, null);
+    });
+
     it('stays quiet on an order confirmation', () => {
         const result = detectOtp({
             subject: 'Order 58213490 confirmed',
