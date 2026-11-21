@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/postalsys/otp-detect/compare/v0.1.0...v0.1.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* detect Vietnamese and Indonesian one-time codes ([#2](https://github.com/postalsys/otp-detect/issues/2)) ([442d919](https://github.com/postalsys/otp-detect/commit/442d9193629dca8c8f471c95ab262563c32128fb))
+
 ## 0.1.0 (2026-11-10)
 
 
